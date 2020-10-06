@@ -22,15 +22,12 @@ impl<'r> FromParam<'r> for Base64String {
     type Error = &'r str;
 
     fn from_param(param: &'r RawStr) -> Result<Self, Self::Error> {
-        let b64 = match base64::decode_config(param, base64::URL_SAFE) {
-            Ok(s) => s,
-            Err(_) => return Err("Cannot base64 decode"),
-        };
-        let inner = match String::from_utf8(b64) {
-            Ok(s) => s,
-            Err(_) => return Err("Failed to decode URL into utf8"),
-        };
-        Ok(Base64String(inner))
+        Ok(Base64String(
+            String::from_utf8(
+                base64::decode_config(param, base64::URL_SAFE).map_err(|_| "Decode Error")?,
+            )
+            .map_err(|_| "String Encode Error")?,
+        ))
     }
 }
 
