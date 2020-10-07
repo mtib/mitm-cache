@@ -7,13 +7,14 @@
 }
 </style>
 {% endblock %}
-{% block container %}
+{% block body %}
 <table class="table">
     <tr>
         <th>#</th>
         <th>URL</th>
         <th>Cache</th>
         <th>Age</th>
+        <th>Hits</th>
         <th>Size</th>
     </tr>
     {% for item in cache %}
@@ -22,6 +23,7 @@
         <td><a href="{{ item.0 }}">{{ item.0 }}</a></td>
         <td><a href="" data-link="{{ item.0 }}" class="cache-link">cache</a></td>
         <td data-timestamp="{{ item.1.timestamp }}" class="timestamp">TBD</td>
+        <td>{{ item.1.hits }}</td>
         <td data-bytes="{{ item.1.bytes }}" class="size">{{ item.1.bytes }}B</td>
     </tr>
     {% endfor %}

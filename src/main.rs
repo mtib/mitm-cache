@@ -38,6 +38,7 @@ impl<'r> FromParam<'r> for Base64String {
 struct Response {
     timestamp: u64,
     cache: String,
+    hits: usize,
 }
 
 fn now() -> u64 {
@@ -92,6 +93,7 @@ struct Memory {}
 struct ResponseSummary {
     timestamp: u64,
     bytes: usize,
+    hits: usize,
 }
 
 impl From<&Response> for ResponseSummary {
@@ -99,6 +101,7 @@ impl From<&Response> for ResponseSummary {
         ResponseSummary {
             timestamp: r.timestamp,
             bytes: r.cache.len(),
+            hits: r.hits,
         }
     }
 }
@@ -126,7 +129,7 @@ fn list_template(key: ApiKey) -> Template {
     for (key, val) in cache.iter() {
         summary.push((key, val.into()));
     }
-    summary.sort_by_key(|a| a.1.timestamp);
+    summary.sort_by_key(|a| u64::MAX - a.1.timestamp);
     Template::render(
         "list",
         IndexData {
@@ -155,8 +158,11 @@ fn request_auth_by_param(duration: u64, url: Base64String, key: ApiKey) -> Optio
 fn proxy(duration: u64, url: Base64String) -> Option<String> {
     let mut cache = CACHE.lock().unwrap();
     let req_time = now();
-    match cache.get(&url.0) {
-        Some(r) if r.timestamp + duration > req_time => Some(r.cache.to_owned()),
+    match cache.get_mut(&url.0) {
+        Some(r) if r.timestamp + duration > req_time => {
+            r.hits += 1;
+            Some(r.cache.to_owned())
+        }
         _ => match reqwest::blocking::get(&url.0).ok()?.text().ok() {
             Some(body) => {
                 cache.insert(
@@ -164,6 +170,7 @@ fn proxy(duration: u64, url: Base64String) -> Option<String> {
                     Response {
                         timestamp: req_time,
                         cache: body.to_string(),
+                        hits: 1,
                     },
                 );
                 Some(body)
