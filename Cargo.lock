@@ -884,7 +884,7 @@ dependencies = [
 
 [[package]]
 name = "mitm-cache"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.13.0",
  "lazy_static",
