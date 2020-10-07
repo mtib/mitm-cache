@@ -1,6 +1,6 @@
 # mitm-cache
 
-Minimal proxy/cache implementation.
+Minimal proxy/cache implementation, with the intended use to reduce calls to usage-limited APIs during development.
 
 Example httpie request for [http://httpbin.org/uuid](http://httpbin.org/uuid):
 
@@ -13,3 +13,7 @@ Notice that the url is base64-urlencoded. The *10* is the acceptable cache age a
 ## web-interface
 
 On `/<MITM_KEY>` a web-interface can be found, which shows all cached requests. (If no key was provided *any* request on `/` will show the same web-interface).
+
+## api
+
+There is a Golang implementation for interacting with this cache: [mtib/mitm-cache-go](https://github.com/mtib/mitm-cache-go).
