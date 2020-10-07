@@ -7,7 +7,7 @@ extern crate lazy_static;
 extern crate rocket;
 
 use serde::Serialize;
-use std::{collections::HashMap, sync::Mutex, sync::MutexGuard, time::SystemTime};
+use std::{collections::HashMap, sync::Mutex, time::SystemTime};
 
 use rocket::Outcome;
 use rocket::{
@@ -29,7 +29,10 @@ impl<'r> FromParam<'r> for Base64String {
             String::from_utf8(
                 base64::decode_config(param, base64::URL_SAFE).map_err(|_| "Decode Error")?,
             )
-            .map_err(|_| "String Encode Error")?,
+            .map_err(|e| {
+                eprintln!("String Encode Error: {:?}", e);
+                "String Encode Error"
+            })?,
         ))
     }
 }

@@ -65,7 +65,7 @@
 
     const cache_links = document.getElementsByClassName("cache-link");
     for (let i = 0; i < cache_links.length; i++) {
-        cache_links[i].href = `/request/${year}/${btoa(cache_links[i].dataset.link).replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '')}/${key}`;
+        cache_links[i].href = `/request/${year}/${btoa(unescape( encodeURIComponent(cache_links[i].dataset.link))).replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '')}/${key}`;
     }
 
     const sizes = document.getElementsByClassName("size");
