@@ -6,14 +6,17 @@ extern crate lazy_static;
 #[macro_use]
 extern crate rocket;
 
-use std::{collections::HashMap, sync::Mutex, time::SystemTime};
+use serde::Serialize;
+use std::{collections::HashMap, sync::Mutex, sync::MutexGuard, time::SystemTime};
 
 use rocket::Outcome;
 use rocket::{
     http::RawStr,
     request::{self, FromParam, FromRequest, Request},
 };
+use rocket_contrib::templates::Template;
 
+#[derive(Debug, Serialize)]
 struct ApiKey(String);
 
 struct Base64String(String);
@@ -31,6 +34,7 @@ impl<'r> FromParam<'r> for Base64String {
     }
 }
 
+#[derive(Debug, Serialize, Clone)]
 struct Response {
     timestamp: u64,
     cache: String,
@@ -65,17 +69,90 @@ impl<'a, 'r> FromRequest<'a, 'r> for ApiKey {
     }
 }
 
+impl<'a> FromParam<'a> for ApiKey {
+    type Error = ();
+
+    fn from_param(param: &'a RawStr) -> Result<Self, Self::Error> {
+        if is_valid(param) {
+            Ok(ApiKey(param.to_string()))
+        } else {
+            Err(())
+        }
+    }
+}
+
 lazy_static! {
     static ref CACHE: Mutex<HashMap<String, Response>> = Mutex::new(HashMap::new());
 }
 
+#[derive(Debug, Serialize)]
+struct Memory {}
+
+#[derive(Debug, Serialize)]
+struct ResponseSummary {
+    timestamp: u64,
+    bytes: usize,
+}
+
+impl From<&Response> for ResponseSummary {
+    fn from(r: &Response) -> Self {
+        ResponseSummary {
+            timestamp: r.timestamp,
+            bytes: r.cache.len(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct IndexData<'r> {
+    mem: Memory,
+    cache: Vec<(&'r String, ResponseSummary)>,
+    key: ApiKey,
+}
+
 #[get("/")]
-fn index() -> &'static str {
-    "I'll put an UI here later"
+fn index(key: ApiKey) -> Template {
+    list_template(key)
+}
+
+#[get("/<key>", rank = 2)]
+fn index_alt(key: ApiKey) -> Template {
+    list_template(key)
+}
+
+fn list_template(key: ApiKey) -> Template {
+    let cache = CACHE.lock().unwrap();
+    let mut summary: Vec<(_, ResponseSummary)> = Vec::with_capacity(cache.len());
+    for (key, val) in cache.iter() {
+        summary.push((key, val.into()));
+    }
+    summary.sort_by_key(|a| a.1.timestamp);
+    Template::render(
+        "list",
+        IndexData {
+            mem: Memory {},
+            cache: summary,
+            key,
+        },
+    )
+}
+
+#[get("/", rank = 3)]
+fn index_noauth() -> &'static str {
+    "Looking at the UI still requires authentication"
 }
 
 #[get("/request/<duration>/<url>", rank = 1)]
-fn request(_key: ApiKey, duration: u64, url: Base64String) -> Option<String> {
+fn request_auth_by_header(_key: ApiKey, duration: u64, url: Base64String) -> Option<String> {
+    proxy(duration, url)
+}
+
+#[get("/request/<duration>/<url>/<key>", rank = 2)]
+fn request_auth_by_param(duration: u64, url: Base64String, key: ApiKey) -> Option<String> {
+    proxy(duration, url)
+}
+
+fn proxy(duration: u64, url: Base64String) -> Option<String> {
     let mut cache = CACHE.lock().unwrap();
     let req_time = now();
     match cache.get(&url.0) {
@@ -96,13 +173,50 @@ fn request(_key: ApiKey, duration: u64, url: Base64String) -> Option<String> {
     }
 }
 
-#[get("/request/<duration>/<url>", rank = 2)]
-fn request_alt(duration: usize, url: Base64String) -> &'static str {
-    "Invalid auth!"
+#[get("/request/<duration>/<url>", rank = 3)]
+fn request_alt(
+    _key: Option<ApiKey>,
+    duration: &RawStr,
+    url: Result<Base64String, &str>,
+) -> Template {
+    #[derive(Debug, Serialize)]
+    struct FailureContext<'r> {
+        duration: &'r str,
+        url: &'r str,
+        error: Option<&'r str>,
+    }
+    Template::render(
+        "400",
+        FailureContext {
+            duration,
+            url: match &url {
+                Ok(b) => &b.0,
+                Err(_) => "Not available",
+            },
+            error: match &url {
+                Ok(_) => match _key {
+                    Some(_) => None,
+                    None => Some("Key error"),
+                },
+                Err(s) => Some(s),
+            },
+        },
+    )
 }
 
 fn main() {
     rocket::ignite()
-        .mount("/", routes![index, request, request_alt])
+        .attach(Template::fairing())
+        .mount(
+            "/",
+            routes![
+                index,
+                index_alt,
+                index_noauth,
+                request_auth_by_header,
+                request_auth_by_param,
+                request_alt
+            ],
+        )
         .launch();
 }

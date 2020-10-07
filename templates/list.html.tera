@@ -1,0 +1,85 @@
+{% extends "base" %}
+{% block head %}
+{{ super() }}
+<style>
+.timestamp::after {
+
+}
+</style>
+{% endblock %}
+{% block container %}
+<table class="table">
+    <tr>
+        <th>#</th>
+        <th>URL</th>
+        <th>Cache</th>
+        <th>Age</th>
+        <th>Size</th>
+    </tr>
+    {% for item in cache %}
+    <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="{{ item.0 }}">{{ item.0 }}</a></td>
+        <td><a href="" data-link="{{ item.0 }}" class="cache-link">cache</a></td>
+        <td data-timestamp="{{ item.1.timestamp }}" class="timestamp">TBD</td>
+        <td data-bytes="{{ item.1.bytes }}" class="size">{{ item.1.bytes }}B</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
+{% block footer %}
+<script>
+    const timestamps = document.getElementsByClassName("timestamp");
+    const key = "{{ key }}";
+
+    const second = 1;
+    const minute = 60 * second;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const year = 365 * day;
+
+    const b = 1;
+    const kb = 1024;
+    const mb = 1024 * kb;
+    const gb = 1024 * mb;
+
+    function update() {
+        const time = new Date().getTime() / 1000;
+        for (let i = 0; i < timestamps.length; i++) {
+            const diff = Math.floor(time - timestamps[i].dataset.timestamp);
+            if (diff < 120) {
+                timestamps[i].innerHTML = `${diff}s`;
+            } else if (diff < 2 * hour) {
+                timestamps[i].innerHTML = `${Math.floor(diff/minute)}min`;
+            } else if (diff < 48 * hour) {
+                timestamps[i].innerHTML = `${Math.floor(diff/hour)}h`;
+            } else {
+                timestamps[i].innerHTML = `${Math.floor(diff/day)}d`;
+            }
+        }
+    }
+
+    update();
+
+    const cache_links = document.getElementsByClassName("cache-link");
+    for (let i = 0; i < cache_links.length; i++) {
+        cache_links[i].href = `/request/${year}/${btoa(cache_links[i].dataset.link).replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '')}=/${key}`;
+    }
+
+    const sizes = document.getElementsByClassName("size");
+    for (let i = 0; i < sizes.length; i++) {
+        const b = sizes[i].dataset.bytes;
+        if (b < 4 * kb) {
+            sizes[i].innerHTML = `${b} B`;
+        } else if ( b < 4 * mb) {
+            sizes[i].innerHTML = `${Math.ceil(b/kb)} KiB`;
+        } else if ( b < 4 * gb) {
+            sizes[i].innerHTML = `${Math.ceil(b/mb)} MiB`;
+        } else {
+            sizes[i].innerHTML = `${Math.ceil(b/gb)} GiB`;
+        }
+    }
+
+    window.setInterval(update, 1000);
+</script>
+{% endblock %}

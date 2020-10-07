@@ -1,0 +1,4 @@
+{% extends "base" %}
+{% block container %}
+<code>{{ error }}</code> for duration = "{{ duration }}" and url = "{{ url }}".
+{% endblock %}
